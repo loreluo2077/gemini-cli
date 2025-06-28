@@ -597,7 +597,7 @@ describe('Settings Loading and Merging', () => {
       (mockFsExistsSync as Mock).mockReturnValue(false);
       const loadedSettings = loadSettings(MOCK_WORKSPACE_DIR) as LoadedSettings;
 
-      vi.mocked(fs.writeFileSync).mockImplementation(() => {});
+      vi.mocked(fs.writeFileSync).mockImplementation(() => { });
       // mkdirSync is mocked in beforeEach to return undefined, which is fine for void usage
 
       loadedSettings.setValue(SettingScope.User, 'theme', 'matrix');
