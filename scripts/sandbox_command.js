@@ -67,24 +67,71 @@ geminiSandbox = (geminiSandbox || '').toLowerCase();
 
 const commandExists = (cmd) => {
   const checkCommand = os.platform() === 'win32' ? 'where' : 'command -v';
+  if (!argv.q) {
+    console.log(`[SANDBOX] 检查命令是否存在: ${cmd}`);
+  }
   try {
-    execSync(`${checkCommand} ${cmd}`, { stdio: 'ignore' });
+    const startTime = Date.now();
+    execSync(`${checkCommand} ${cmd}`, {
+      stdio: 'ignore',
+      timeout: 5000, // 5秒超时
+    });
+    const endTime = Date.now();
+    if (!argv.q) {
+      console.log(
+        `[SANDBOX] 命令 ${cmd} 存在，检查耗时: ${endTime - startTime}ms`,
+      );
+    }
     return true;
-  } catch {
+  } catch (error) {
+    if (error.code === 'TIMEOUT') {
+      if (!argv.q) {
+        console.log(`[SANDBOX] 警告: 检查命令 ${cmd} 超时`);
+      }
+      return false;
+    }
     if (os.platform() === 'win32') {
       try {
-        execSync(`${checkCommand} ${cmd}.exe`, { stdio: 'ignore' });
+        const startTime = Date.now();
+        execSync(`${checkCommand} ${cmd}.exe`, {
+          stdio: 'ignore',
+          timeout: 5000, // 5秒超时
+        });
+        const endTime = Date.now();
+        if (!argv.q) {
+          console.log(
+            `[SANDBOX] 命令 ${cmd}.exe 存在，检查耗时: ${endTime - startTime}ms`,
+          );
+        }
         return true;
-      } catch {
+      } catch (winError) {
+        if (winError.code === 'TIMEOUT') {
+          if (!argv.q) {
+            console.log(`[SANDBOX] 警告: 检查命令 ${cmd}.exe 超时`);
+          }
+        } else if (!argv.q) {
+          console.log(`[SANDBOX] 命令 ${cmd} 和 ${cmd}.exe 都不存在`);
+        }
         return false;
       }
+    }
+    if (!argv.q) {
+      console.log(`[SANDBOX] 命令 ${cmd} 不存在`);
     }
     return false;
   }
 };
 
 let command = '';
+if (!argv.q) {
+  console.log(`[SANDBOX] GEMINI_SANDBOX 配置: ${geminiSandbox || '未设置'}`);
+  console.log(`[SANDBOX] 操作系统: ${os.platform()}`);
+}
+
 if (['1', 'true'].includes(geminiSandbox)) {
+  if (!argv.q) {
+    console.log('[SANDBOX] 启用沙箱模式，检查容器工具...');
+  }
   if (commandExists('docker')) {
     command = 'docker';
   } else if (commandExists('podman')) {
@@ -96,6 +143,9 @@ if (['1', 'true'].includes(geminiSandbox)) {
     process.exit(1);
   }
 } else if (geminiSandbox && !['0', 'false'].includes(geminiSandbox)) {
+  if (!argv.q) {
+    console.log(`[SANDBOX] 使用自定义沙箱命令: ${geminiSandbox}`);
+  }
   if (commandExists(geminiSandbox)) {
     command = geminiSandbox;
   } else {
@@ -105,13 +155,25 @@ if (['1', 'true'].includes(geminiSandbox)) {
     process.exit(1);
   }
 } else {
+  if (!argv.q) {
+    console.log('[SANDBOX] 沙箱未启用或显式禁用');
+  }
   if (os.platform() === 'darwin' && process.env.SEATBELT_PROFILE !== 'none') {
+    if (!argv.q) {
+      console.log('[SANDBOX] macOS平台，检查 sandbox-exec...');
+    }
     if (commandExists('sandbox-exec')) {
       command = 'sandbox-exec';
     } else {
+      if (!argv.q) {
+        console.log('[SANDBOX] sandbox-exec 不可用');
+      }
       process.exit(1);
     }
   } else {
+    if (!argv.q) {
+      console.log('[SANDBOX] 不使用沙箱');
+    }
     process.exit(1);
   }
 }
