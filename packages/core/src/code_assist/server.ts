@@ -47,11 +47,15 @@ export class CodeAssistServer implements ContentGenerator {
     readonly auth: AuthClient,
     readonly projectId?: string,
     readonly httpOptions: HttpOptions = {},
+    readonly customContentGenerator?: ContentGenerator,
   ) {}
 
   async generateContentStream(
     req: GenerateContentParameters,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
+    if (this.customContentGenerator) {
+      return this.customContentGenerator.generateContentStream(req);
+    }
     const resps = await this.streamEndpoint<CaGenerateContentResponse>(
       'streamGenerateContent',
       toGenerateContentRequest(req, this.projectId),
@@ -67,6 +71,9 @@ export class CodeAssistServer implements ContentGenerator {
   async generateContent(
     req: GenerateContentParameters,
   ): Promise<GenerateContentResponse> {
+    if (this.customContentGenerator) {
+      return this.customContentGenerator.generateContent(req);
+    }
     const resp = await this.callEndpoint<CaGenerateContentResponse>(
       'generateContent',
       toGenerateContentRequest(req, this.projectId),
@@ -94,6 +101,9 @@ export class CodeAssistServer implements ContentGenerator {
   }
 
   async countTokens(req: CountTokensParameters): Promise<CountTokensResponse> {
+    if (this.customContentGenerator) {
+      return this.customContentGenerator.countTokens(req);
+    }
     const resp = await this.callEndpoint<CaCountTokenResponse>(
       'countTokens',
       toCountTokenRequest(req),
@@ -104,6 +114,9 @@ export class CodeAssistServer implements ContentGenerator {
   async embedContent(
     _req: EmbedContentParameters,
   ): Promise<EmbedContentResponse> {
+    if (this.customContentGenerator) {
+      return this.customContentGenerator.embedContent(_req);
+    }
     throw Error();
   }
 
