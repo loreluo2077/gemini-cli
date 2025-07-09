@@ -10,15 +10,38 @@ import {
   GenerateContentParameters,
   GenerateContentResponse,
   Part,
+  Tool,
 } from '@google/genai';
 import {
   ChatCompletion,
   ChatCompletionChunk,
-  ChatCompletionCreateParams,
   ChatCompletionCreateParamsNonStreaming,
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
+  ChatCompletionTool,
 } from 'openai/resources/chat/completions';
+
+function toOpenAITools(tools?: Tool[]): ChatCompletionTool[] | undefined {
+  if (!tools || tools.length === 0) {
+    return undefined;
+  }
+  const openAITools: ChatCompletionTool[] = [];
+  for (const tool of tools) {
+    if (tool.functionDeclarations) {
+      for (const func of tool.functionDeclarations) {
+        openAITools.push({
+          type: 'function',
+          function: {
+            name: func.name ?? '',
+            description: func.description ?? '',
+            parameters: func.parameters as any,
+          },
+        });
+      }
+    }
+  }
+  return openAITools;
+}
 
 /**
  * Maps the Gemini GenerateContentParameters to OpenAI's ChatCompletionCreateParams.
@@ -40,6 +63,7 @@ export function toOpenAIChatCompletionStreamingRequest(
     };
   });
 
+  const openAITools = toOpenAITools((req as any).tools as Tool[]);
   return {
     model: model,
     messages: messages,
@@ -48,6 +72,8 @@ export function toOpenAIChatCompletionStreamingRequest(
     top_p: req.config?.topP,
     max_tokens: req.config?.maxOutputTokens,
     stop: req.config?.stopSequences,
+    tools: openAITools,
+    tool_choice: openAITools ? 'auto' : undefined,
   };
 }
 
@@ -66,6 +92,7 @@ export function toOpenAIChatCompletionRequest(
     };
   });
 
+  const openAITools = toOpenAITools((req as any).tools as Tool[]);
   return {
     model: model,
     messages: messages,
@@ -74,6 +101,8 @@ export function toOpenAIChatCompletionRequest(
     top_p: req.config?.topP,
     max_tokens: req.config?.maxOutputTokens,
     stop: req.config?.stopSequences,
+    tools: openAITools,
+    tool_choice: openAITools ? 'auto' : undefined,
   };
 }
 
@@ -104,12 +133,26 @@ export function fromOpenAIChatCompletionResponse(
 ): GenerateContentResponse {
   const response = new GenerateContentResponse();
   response.candidates = res.choices.map((choice) => {
+    const parts: Part[] = [];
+    if (choice.message.content) {
+      parts.push({ text: choice.message.content });
+    }
+    if (choice.message.tool_calls) {
+      choice.message.tool_calls.forEach((toolCall) => {
+        parts.push({
+          functionCall: {
+            name: toolCall.function.name,
+            args: JSON.parse(toolCall.function.arguments),
+          },
+        });
+      });
+    }
     return {
       index: choice.index,
       finishReason: toGeminiFinishReason(choice.finish_reason),
       content: {
         role: 'model',
-        parts: [{ text: choice.message.content || '' }],
+        parts,
       },
       // safetyRatings are not available in OpenAI's API and will be omitted.
     };
@@ -132,12 +175,18 @@ export function fromOpenAIStreamChunk(
 ): GenerateContentResponse {
   const response = new GenerateContentResponse();
   response.candidates = chunk.choices.map((choice) => {
+    const parts: Part[] = [];
+    if (choice.delta.content) {
+      parts.push({ text: choice.delta.content });
+    }
+    // Note: tool calls from streaming will be handled in the server
+    // due to the need for stateful aggregation.
     return {
       index: choice.index,
       finishReason: toGeminiFinishReason(choice.finish_reason),
       content: {
         role: 'model',
-        parts: [{ text: choice.delta.content || '' }],
+        parts,
       },
     };
   });

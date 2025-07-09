@@ -12,6 +12,8 @@ import {
   CountTokensResponse,
   EmbedContentResponse,
   EmbedContentParameters,
+  Part,
+  FinishReason,
 } from '@google/genai';
 import {
   toOpenAIChatCompletionRequest,
@@ -51,8 +53,69 @@ export class OpenAICodeAssistServer implements ContentGenerator {
   private async *mapStream(
     stream: AsyncIterable<ChatCompletionChunk>,
   ): AsyncGenerator<GenerateContentResponse> {
+    // Tool calls can be streamed, so we need to accumulate the parts.
+    const toolCallChunks: {
+      [index: number]: {
+        id: string;
+        name: string;
+        arguments: string;
+      };
+    } = {};
+
     for await (const chunk of stream) {
-      yield fromOpenAIStreamChunk(chunk);
+      const delta = chunk.choices[0]?.delta;
+      if (!delta) {
+        continue;
+      }
+
+      if (delta.content) {
+        // Yield text content as it comes.
+        yield fromOpenAIStreamChunk(chunk);
+      }
+
+      if (delta.tool_calls) {
+        for (const toolCall of delta.tool_calls) {
+          if (toolCall.index === undefined) {
+            continue;
+          }
+          const index = toolCall.index;
+          if (!toolCallChunks[index]) {
+            toolCallChunks[index] = {
+              id: toolCall.id ?? '',
+              name: toolCall.function?.name ?? '',
+              arguments: toolCall.function?.arguments ?? '',
+            };
+          } else {
+            toolCallChunks[index].arguments +=
+              toolCall.function?.arguments ?? '';
+          }
+        }
+      }
+
+      const finishReason = chunk.choices[0]?.finish_reason;
+      if (finishReason === 'tool_calls') {
+        const parts: Part[] = Object.values(toolCallChunks).map((tc) => {
+          return {
+            functionCall: {
+              name: tc.name,
+              args: JSON.parse(tc.arguments),
+            },
+          };
+        });
+
+        const response = new GenerateContentResponse();
+        response.candidates = [
+          {
+            index: 0,
+            finishReason: 'TOOL_CALL' as FinishReason,
+            content: {
+              role: 'model',
+              parts,
+            },
+          },
+        ];
+        yield response;
+      }
     }
   }
 
