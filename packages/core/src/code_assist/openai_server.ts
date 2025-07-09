@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import OpenAI from 'openai';
+import { OpenAI } from 'openai';
 import {
   GenerateContentResponse,
   GenerateContentParameters,
@@ -27,6 +27,7 @@ import {
 } from 'openai/resources/chat/completions';
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { Content } from '@google/genai';
+import dotenv from 'dotenv';
 
 /** HTTP options to be used in each of the requests. */
 export interface HttpOptions {
@@ -41,6 +42,7 @@ export class OpenAICodeAssistServer implements ContentGenerator {
     readonly httpOptions: HttpOptions = {},
   ) {
     this.openai = new OpenAI({
+      baseURL: process.env.OPENAI_BASE_URL,
       apiKey: process.env.OPENAI_API_KEY,
       ...httpOptions,
     });
@@ -97,3 +99,19 @@ export class OpenAICodeAssistServer implements ContentGenerator {
     throw Error();
   }
 }
+
+// async function main() {
+//   dotenv.config();
+
+//   const openaiServer = new OpenAICodeAssistServer('openai/gpt-4o');
+//   const stream = await openaiServer.generateContentStream({
+//     model: 'gpt-4',
+//     contents: [{ role: 'user', parts: [{ text: 'Hello, how are you?' }] }],
+//   });
+
+//   for await (const chunk of stream) {
+//     console.log(chunk);
+//   }
+// }
+
+// main();
