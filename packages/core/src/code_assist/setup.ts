@@ -11,7 +11,7 @@ import {
   OnboardUserRequest,
   UserTierId,
 } from './types.js';
-import { CodeAssistServer } from './server.js';
+import { CodeAssistServer } from './gemini_server.js';
 import { OAuth2Client } from 'google-auth-library';
 
 export class ProjectIdRequiredError extends Error {

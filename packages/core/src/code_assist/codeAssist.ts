@@ -7,7 +7,7 @@
 import { AuthType, ContentGenerator } from '../core/contentGenerator.js';
 import { getOauthClient } from './oauth2.js';
 import { setupUser } from './setup.js';
-import { CodeAssistServer, HttpOptions } from './server.js';
+import { CodeAssistServer, HttpOptions } from './gemini_server.js';
 import { OpenAICodeAssistServer } from './openai_server.js';
 
 export async function createCodeAssistContentGenerator(

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { CodeAssistServer } from './server.js';
+import { CodeAssistServer } from './gemini_server.js';
 import { OAuth2Client } from 'google-auth-library';
 
 vi.mock('google-auth-library');
