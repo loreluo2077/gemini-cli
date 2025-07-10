@@ -30,6 +30,7 @@ import {
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { Content } from '@google/genai';
 import dotenv from 'dotenv';
+import { studyLogger } from '../utils/studyLoggerUtil.js';
 
 /** HTTP options to be used in each of the requests. */
 export interface HttpOptions {
@@ -43,6 +44,13 @@ export class OpenAICodeAssistServer implements ContentGenerator {
     readonly model: string,
     readonly httpOptions: HttpOptions = {},
   ) {
+    studyLogger.info('初始化OpenAICodeAssistServer配置', {
+      model,
+      httpOptions,
+      baseURL: process.env.OPENAI_BASE_URL,
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     this.openai = new OpenAI({
       baseURL: process.env.OPENAI_BASE_URL,
       apiKey: process.env.OPENAI_API_KEY,
@@ -166,15 +174,19 @@ export class OpenAICodeAssistServer implements ContentGenerator {
 // async function main() {
 //   dotenv.config();
 
-//   const openaiServer = new OpenAICodeAssistServer('openai/gpt-4o');
+//   const openaiServer = new OpenAICodeAssistServer(
+//     process.env.OPENAI_MODEL ?? 'openai/gpt-4o',
+//   );
 //   const stream = await openaiServer.generateContentStream({
-//     model: 'gpt-4',
+//     model: process.env.OPENAI_MODEL ?? 'openai/gpt-4o',
 //     contents: [{ role: 'user', parts: [{ text: 'Hello, how are you?' }] }],
 //   });
 
+//   let str = '';
 //   for await (const chunk of stream) {
-//     console.log(chunk);
+//     str += chunk.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 //   }
+//   console.log(str);
 // }
 
 // main();

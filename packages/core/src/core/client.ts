@@ -181,6 +181,7 @@ export class GeminiClient {
         parts: [{ text: 'Got it. Thanks for the context!' }],
       },
     ];
+    console.log('initialHistory', initialHistory);
     const history = initialHistory.concat(extraHistory ?? []);
     try {
       const userMemory = this.config.getUserMemory();
@@ -204,6 +205,7 @@ export class GeminiClient {
         history,
       );
     } catch (error) {
+      console.log('error', error);
       await reportError(
         error,
         'Error initializing Gemini chat session.',

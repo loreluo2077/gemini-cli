@@ -15,13 +15,15 @@ export async function createCodeAssistContentGenerator(
   authType: AuthType,
 ): Promise<ContentGenerator> {
   if ('openapi' === process.env.CODE_ASSIST_PROVIDER) {
-    return new OpenAICodeAssistServer('openai/gpt-4o');
+    return new OpenAICodeAssistServer(
+      process.env.OPENAI_MODEL ?? 'openai/gpt-4o',
+    );
   }
-  if (authType === AuthType.LOGIN_WITH_GOOGLE_PERSONAL) {
-    const authClient = await getOauthClient();
-    const projectId = await setupUser(authClient);
-    return new CodeAssistServer(authClient, projectId, httpOptions);
-  }
+  // if (authType === AuthType.LOGIN_WITH_GOOGLE_PERSONAL) {
+  //   const authClient = await getOauthClient();
+  //   const projectId = await setupUser(authClient);
+  //   return new CodeAssistServer(authClient, projectId, httpOptions);
+  // }
 
   throw new Error(`Unsupported authType: ${authType}`);
 }
