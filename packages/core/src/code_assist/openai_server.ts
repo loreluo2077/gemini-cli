@@ -171,22 +171,4 @@ export class OpenAICodeAssistServer implements ContentGenerator {
   }
 }
 
-// async function main() {
-//   dotenv.config();
 
-//   const openaiServer = new OpenAICodeAssistServer(
-//     process.env.OPENAI_MODEL ?? 'openai/gpt-4o',
-//   );
-//   const stream = await openaiServer.generateContentStream({
-//     model: process.env.OPENAI_MODEL ?? 'openai/gpt-4o',
-//     contents: [{ role: 'user', parts: [{ text: 'Hello, how are you?' }] }],
-//   });
-
-//   let str = '';
-//   for await (const chunk of stream) {
-//     str += chunk.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-//   }
-//   console.log(str);
-// }
-
-// main();
