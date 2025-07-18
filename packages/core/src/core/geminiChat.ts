@@ -38,6 +38,7 @@ import {
   DEFAULT_GEMINI_FLASH_MODEL,
   DEFAULT_GEMINI_MODEL,
 } from '../config/models.js';
+import { studyLogger } from '../utils/studyLoggerUtil.js';
 
 /**
  * Returns true if the response is valid, false otherwise.
@@ -199,16 +200,29 @@ export class GeminiChat {
    * Uses a fallback handler if provided by the config, otherwise returns null.
    */
   private async handleFlashFallback(authType?: string): Promise<string | null> {
+    console.log(
+      `[GeminiChat Debug] Attempting Flash fallback with authType: ${authType}`,
+    );
+
     // Only handle fallback for OAuth users
     if (authType !== AuthType.LOGIN_WITH_GOOGLE_PERSONAL) {
+      console.log(
+        `[GeminiChat Debug] Fallback skipped: Not a personal Google account (authType: ${authType})`,
+      );
       return null;
     }
 
     const currentModel = this.config.getModel();
     const fallbackModel = DEFAULT_GEMINI_FLASH_MODEL;
+    console.log(
+      `[GeminiChat Debug] Fallback check: Current model=${currentModel}, Fallback model=${fallbackModel}`,
+    );
 
     // Don't fallback if already using Flash model
     if (currentModel === fallbackModel) {
+      console.log(
+        `[GeminiChat Debug] Fallback skipped: Already using Flash model`,
+      );
       return null;
     }
 
@@ -216,14 +230,23 @@ export class GeminiChat {
     const fallbackHandler = this.config.flashFallbackHandler;
     if (typeof fallbackHandler === 'function') {
       try {
+        console.log(`[GeminiChat Debug] Executing fallback handler`);
         const accepted = await fallbackHandler(currentModel, fallbackModel);
         if (accepted) {
+          console.log(
+            `[GeminiChat Debug] Fallback accepted: Switching from ${currentModel} to ${fallbackModel}`,
+          );
           this.config.setModel(fallbackModel);
           return fallbackModel;
+        } else {
+          console.log(`[GeminiChat Debug] Fallback rejected by handler`);
         }
       } catch (error) {
         console.warn('Flash fallback handler failed:', error);
+        console.log(`[GeminiChat Debug] Fallback handler error:`, error);
       }
+    } else {
+      console.log(`[GeminiChat Debug] No fallback handler available`);
     }
 
     return null;
@@ -252,9 +275,19 @@ export class GeminiChat {
   async sendMessage(
     params: SendMessageParameters,
   ): Promise<GenerateContentResponse> {
+    console.log(
+      `[GeminiChat Debug] Starting sendMessage with params:`,
+      typeof params.message === 'string'
+        ? `message length: ${params.message.length}`
+        : `message type: ${typeof params.message}`,
+    );
+
     await this.sendPromise;
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
+    console.log(
+      `[GeminiChat Debug] Request prepared with ${requestContents.length} content items`,
+    );
 
     this._logApiRequest(requestContents, this.config.getModel());
 
@@ -264,7 +297,7 @@ export class GeminiChat {
     try {
       const apiCall = () =>
         this.contentGenerator.generateContent({
-          model: this.config.getModel() || DEFAULT_GEMINI_FLASH_MODEL,
+          model: 'deepseek-v3-doubao',
           contents: requestContents,
           config: { ...this.generationConfig, ...params.config },
         });
@@ -312,9 +345,16 @@ export class GeminiChat {
         // Resets sendPromise to avoid subsequent calls failing
         this.sendPromise = Promise.resolve();
       });
+      console.log(
+        `[GeminiChat Debug] sendMessage completed successfully in ${Date.now() - startTime}ms`,
+      );
       return response;
     } catch (error) {
       const durationMs = Date.now() - startTime;
+      console.log(
+        `[GeminiChat Debug] sendMessage failed after ${durationMs}ms:`,
+        error,
+      );
       this._logApiError(durationMs, error);
       this.sendPromise = Promise.resolve();
       throw error;
@@ -346,14 +386,25 @@ export class GeminiChat {
   async sendMessageStream(
     params: SendMessageParameters,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
+    console.log(
+      `[GeminiChat Debug] Starting sendMessageStream with params:`,
+      typeof params.message === 'string'
+        ? `message length: ${params.message.length}`
+        : `message type: ${typeof params.message}`,
+    );
+
     await this.sendPromise;
     const userContent = createUserContent(params.message);
     const requestContents = this.getHistory(true).concat(userContent);
+    console.log(
+      `[GeminiChat Debug] Stream request prepared with ${requestContents.length} content items`,
+    );
 
     const model = await this._selectModel(
       requestContents,
       params.config?.abortSignal ?? new AbortController().signal,
     );
+    console.log(`[GeminiChat Debug] Selected model for stream: ${model}`);
 
     this._logApiRequest(requestContents, model);
 
@@ -397,9 +448,16 @@ export class GeminiChat {
         userContent,
         startTime,
       );
+      console.log(
+        `[GeminiChat Debug] sendMessageStream setup completed in ${Date.now() - startTime}ms`,
+      );
       return result;
     } catch (error) {
       const durationMs = Date.now() - startTime;
+      console.log(
+        `[GeminiChat Debug] sendMessageStream setup failed after ${durationMs}ms:`,
+        error,
+      );
       this._logApiError(durationMs, error);
       this.sendPromise = Promise.resolve();
       throw error;
@@ -415,8 +473,15 @@ export class GeminiChat {
     history: Content[],
     signal: AbortSignal,
   ): Promise<string> {
+    console.log(
+      `[GeminiChat Debug] Selecting model for history with ${history.length} items`,
+    );
+
     const currentModel = this.config.getModel();
     if (currentModel === DEFAULT_GEMINI_FLASH_MODEL) {
+      console.log(
+        `[GeminiChat Debug] Using current Flash model: ${currentModel}`,
+      );
       return DEFAULT_GEMINI_FLASH_MODEL;
     }
 
@@ -426,6 +491,9 @@ export class GeminiChat {
     ) {
       // There's currently a bug where for Gemini API key usage if we try and use flash as one of the first
       // requests in our sequence that it will return an empty token.
+      console.log(
+        `[GeminiChat Debug] Using DEFAULT_GEMINI_MODEL due to API key + short history bug avoidance`,
+      );
       return DEFAULT_GEMINI_MODEL;
     }
 
@@ -445,6 +513,9 @@ For example, if you think "${flashIndicator}" should be used, respond with: { "m
 
     const client = this.config.getGeminiClient();
     try {
+      console.log(
+        `[GeminiChat Debug] Attempting model selection via generateJson`,
+      );
       const choice = await client.generateJson(
         [...history, ...modelChoiceContent],
         {
@@ -468,16 +539,30 @@ For example, if you think "${flashIndicator}" should be used, respond with: { "m
         },
       );
 
+      console.log(`[GeminiChat Debug] Model selection result:`, choice);
       switch (choice.model) {
         case flashIndicator:
+          console.log(
+            `[GeminiChat Debug] Selected Flash model based on router decision`,
+          );
           return DEFAULT_GEMINI_FLASH_MODEL;
         case proIndicator:
+          console.log(
+            `[GeminiChat Debug] Selected Pro model based on router decision`,
+          );
           return DEFAULT_GEMINI_MODEL;
         default:
+          console.log(
+            `[GeminiChat Debug] Using current model (${currentModel}) as router returned unexpected value`,
+          );
           return currentModel;
       }
-    } catch (_e) {
+    } catch (e) {
       // If the model selection fails, just use the default flash model.
+      console.log(
+        `[GeminiChat Debug] Model selection failed, defaulting to Flash model:`,
+        e,
+      );
       return DEFAULT_GEMINI_FLASH_MODEL;
     }
   }
@@ -549,25 +634,40 @@ For example, if you think "${flashIndicator}" should be used, respond with: { "m
     inputContent: Content,
     startTime: number,
   ) {
+    console.log(`[GeminiChat Debug] Starting to process stream response`);
     const outputContent: Content[] = [];
     const chunks: GenerateContentResponse[] = [];
     let errorOccurred = false;
+    let chunkCount = 0;
 
     try {
       for await (const chunk of streamResponse) {
+        chunkCount++;
+        if (chunkCount % 10 === 0) {
+          console.log(
+            `[GeminiChat Debug] Processed ${chunkCount} stream chunks so far`,
+          );
+        }
+
         if (isValidResponse(chunk)) {
           chunks.push(chunk);
           const content = chunk.candidates?.[0]?.content;
           if (content !== undefined) {
             if (this.isThoughtContent(content)) {
+              console.log(`[GeminiChat Debug] Received thought content chunk`);
               yield chunk;
               continue;
             }
             outputContent.push(content);
           }
+        } else {
+          console.log(`[GeminiChat Debug] Received invalid response chunk`);
         }
         yield chunk;
       }
+      console.log(
+        `[GeminiChat Debug] Stream completed with ${chunkCount} total chunks`,
+      );
     } catch (error) {
       errorOccurred = true;
       const durationMs = Date.now() - startTime;
@@ -577,6 +677,10 @@ For example, if you think "${flashIndicator}" should be used, respond with: { "m
 
     if (!errorOccurred) {
       const durationMs = Date.now() - startTime;
+      console.log(
+        `[GeminiChat Debug] Stream processing completed in ${durationMs}ms`,
+      );
+
       const allParts: Part[] = [];
       for (const content of outputContent) {
         if (content.parts) {
@@ -584,12 +688,20 @@ For example, if you think "${flashIndicator}" should be used, respond with: { "m
         }
       }
       const fullText = getStructuredResponseFromParts(allParts);
+
+      console.log(
+        `[GeminiChat Debug] Stream response total length: ${fullText?.length || 0} characters`,
+      );
+
       await this._logApiResponse(
         durationMs,
         this.getFinalUsageMetadata(chunks),
         fullText,
       );
     }
+    console.log(`[GeminiChat Debug] Recording history from stream response`);
+    studyLogger.info('inputContent', JSON.stringify(inputContent, null, 2));
+    studyLogger.info('outputContent', JSON.stringify(outputContent, null, 2));
     this.recordHistory(inputContent, outputContent);
   }
 
@@ -598,8 +710,15 @@ For example, if you think "${flashIndicator}" should be used, respond with: { "m
     modelOutput: Content[],
     automaticFunctionCallingHistory?: Content[],
   ) {
+    console.log(
+      `[GeminiChat Debug] Recording history: modelOutput length=${modelOutput.length}, AFC history=${automaticFunctionCallingHistory ? automaticFunctionCallingHistory.length : 'none'}`,
+    );
+
     const nonThoughtModelOutput = modelOutput.filter(
       (content) => !this.isThoughtContent(content),
+    );
+    console.log(
+      `[GeminiChat Debug] Non-thought model output items: ${nonThoughtModelOutput.length}`,
     );
 
     let outputContents: Content[] = [];
@@ -626,10 +745,15 @@ For example, if you think "${flashIndicator}" should be used, respond with: { "m
       automaticFunctionCallingHistory &&
       automaticFunctionCallingHistory.length > 0
     ) {
-      this.history.push(
-        ...extractCuratedHistory(automaticFunctionCallingHistory!),
+      const curatedAFC = extractCuratedHistory(
+        automaticFunctionCallingHistory!,
       );
+      console.log(
+        `[GeminiChat Debug] Adding ${curatedAFC.length} AFC history items`,
+      );
+      this.history.push(...curatedAFC);
     } else {
+      console.log(`[GeminiChat Debug] Adding user input to history`);
       this.history.push(userInput);
     }
 
@@ -654,6 +778,10 @@ For example, if you think "${flashIndicator}" should be used, respond with: { "m
     }
 
     if (consolidatedOutputContents.length > 0) {
+      console.log(
+        `[GeminiChat Debug] Adding ${consolidatedOutputContents.length} consolidated output contents to history`,
+      );
+
       const lastHistoryEntry = this.history[this.history.length - 1];
       const canMergeWithLastHistory =
         !automaticFunctionCallingHistory ||
@@ -664,6 +792,9 @@ For example, if you think "${flashIndicator}" should be used, respond with: { "m
         this.isTextContent(lastHistoryEntry) &&
         this.isTextContent(consolidatedOutputContents[0])
       ) {
+        console.log(
+          `[GeminiChat Debug] Merging first consolidated output with last history entry`,
+        );
         // If both current and last are text, combine their text into the lastHistoryEntry's first part
         // and append any other parts from the current content.
         lastHistoryEntry.parts[0].text +=
@@ -675,8 +806,18 @@ For example, if you think "${flashIndicator}" should be used, respond with: { "m
         }
         consolidatedOutputContents.shift(); // Remove the first element as it's merged
       }
-      this.history.push(...consolidatedOutputContents);
+
+      if (consolidatedOutputContents.length > 0) {
+        console.log(
+          `[GeminiChat Debug] Adding ${consolidatedOutputContents.length} remaining output contents to history`,
+        );
+        this.history.push(...consolidatedOutputContents);
+      }
     }
+
+    console.log(
+      `[GeminiChat Debug] History updated, new length: ${this.history.length}`,
+    );
   }
 
   private isTextContent(

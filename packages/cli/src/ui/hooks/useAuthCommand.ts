@@ -35,7 +35,6 @@ export const useAuthCommand = (
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   useEffect(() => {
-    studyLogger.info('authFlow start');
     const authFlow = async () => {
       if (isAuthDialogOpen || !settings.merged.selectedAuthType) {
         return;
@@ -48,7 +47,6 @@ export const useAuthCommand = (
           config,
         );
       } catch (e) {
-        studyLogger.info('authFlow error', e);
         setAuthError(`Failed to login. Message: ${getErrorMessage(e)}`);
         openAuthDialog();
       } finally {

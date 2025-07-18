@@ -28,7 +28,7 @@ import {
   toCountTokenRequest,
   fromCountTokenResponse,
   CaCountTokenResponse,
-} from './converter.js';
+} from './gemini_converter.js';
 import { PassThrough } from 'node:stream';
 
 /** HTTP options to be used in each of the requests. */

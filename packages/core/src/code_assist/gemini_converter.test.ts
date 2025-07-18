@@ -9,7 +9,7 @@ import {
   toGenerateContentRequest,
   fromGenerateContentResponse,
   CaGenerateContentResponse,
-} from './converter.js';
+} from './gemini_converter.js';
 import {
   GenerateContentParameters,
   GenerateContentResponse,
