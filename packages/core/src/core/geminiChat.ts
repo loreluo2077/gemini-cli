@@ -477,94 +477,95 @@ export class GeminiChat {
       `[GeminiChat Debug] Selecting model for history with ${history.length} items`,
     );
 
-    const currentModel = this.config.getModel();
-    if (currentModel === DEFAULT_GEMINI_FLASH_MODEL) {
-      console.log(
-        `[GeminiChat Debug] Using current Flash model: ${currentModel}`,
-      );
-      return DEFAULT_GEMINI_FLASH_MODEL;
-    }
+    // const currentModel = this.config.getModel();
+    // if (currentModel === DEFAULT_GEMINI_FLASH_MODEL) {
+    //   console.log(
+    //     `[GeminiChat Debug] Using current Flash model: ${currentModel}`,
+    //   );
+    //   return DEFAULT_GEMINI_FLASH_MODEL;
+    // }
 
-    if (
-      history.length < 5 &&
-      this.config.getContentGeneratorConfig().authType === AuthType.USE_GEMINI
-    ) {
-      // There's currently a bug where for Gemini API key usage if we try and use flash as one of the first
-      // requests in our sequence that it will return an empty token.
-      console.log(
-        `[GeminiChat Debug] Using DEFAULT_GEMINI_MODEL due to API key + short history bug avoidance`,
-      );
-      return DEFAULT_GEMINI_MODEL;
-    }
+    // if (
+    //   history.length < 5 &&
+    //   this.config.getContentGeneratorConfig().authType === AuthType.USE_GEMINI
+    // ) {
+    //   // There's currently a bug where for Gemini API key usage if we try and use flash as one of the first
+    //   // requests in our sequence that it will return an empty token.
+    //   console.log(
+    //     `[GeminiChat Debug] Using DEFAULT_GEMINI_MODEL due to API key + short history bug avoidance`,
+    //   );
+    //   return DEFAULT_GEMINI_MODEL;
+    // }
 
-    const flashIndicator = 'flash';
-    const proIndicator = 'pro';
-    const modelChoicePrompt = `You are a super-intelligent router that decides which model to use for a given request. You have two models to choose from: "${flashIndicator}" and "${proIndicator}". "${flashIndicator}" is a smaller and faster model that is good for simple or well defined requests. "${proIndicator}" is a larger and slower model that is good for complex or undefined requests.
+    //     const flashIndicator = 'flash';
+    //     const proIndicator = 'pro';
+    //     const modelChoicePrompt = `You are a super-intelligent router that decides which model to use for a given request. You have two models to choose from: "${flashIndicator}" and "${proIndicator}". "${flashIndicator}" is a smaller and faster model that is good for simple or well defined requests. "${proIndicator}" is a larger and slower model that is good for complex or undefined requests.
 
-Based on the user request, which model should be used? Respond with a JSON object that contains a single field, \`model\`, whose value is the name of the model to be used.
+    // Based on the user request, which model should be used? Respond with a JSON object that contains a single field, \`model\`, whose value is the name of the model to be used.
 
-For example, if you think "${flashIndicator}" should be used, respond with: { "model": "${flashIndicator}" }`;
-    const modelChoiceContent: Content[] = [
-      {
-        role: 'user',
-        parts: [{ text: modelChoicePrompt }],
-      },
-    ];
+    // For example, if you think "${flashIndicator}" should be used, respond with: { "model": "${flashIndicator}" }`;
+    //     const modelChoiceContent: Content[] = [
+    //       {
+    //         role: 'user',
+    //         parts: [{ text: modelChoicePrompt }],
+    //       },
+    //     ];
 
-    const client = this.config.getGeminiClient();
-    try {
-      console.log(
-        `[GeminiChat Debug] Attempting model selection via generateJson`,
-      );
-      const choice = await client.generateJson(
-        [...history, ...modelChoiceContent],
-        {
-          type: 'object',
-          properties: {
-            model: {
-              type: 'string',
-              enum: [flashIndicator, proIndicator],
-            },
-          },
-          required: ['model'],
-        },
-        signal,
-        DEFAULT_GEMINI_FLASH_MODEL,
-        {
-          temperature: 0,
-          maxOutputTokens: 25,
-          thinkingConfig: {
-            thinkingBudget: 0,
-          },
-        },
-      );
+    // const client = this.config.getGeminiClient();
+    // try {
+    //   console.log(
+    //     `[GeminiChat Debug] Attempting model selection via generateJson`,
+    //   );
+    //   const choice = await client.generateJson(
+    //     [...history, ...modelChoiceContent],
+    //     {
+    //       type: 'object',
+    //       properties: {
+    //         model: {
+    //           type: 'string',
+    //           enum: [flashIndicator, proIndicator],
+    //         },
+    //       },
+    //       required: ['model'],
+    //     },
+    //     signal,
+    //     DEFAULT_GEMINI_FLASH_MODEL,
+    //     {
+    //       temperature: 0,
+    //       maxOutputTokens: 25,
+    //       thinkingConfig: {
+    //         thinkingBudget: 0,
+    //       },
+    //     },
+    //   );
 
-      console.log(`[GeminiChat Debug] Model selection result:`, choice);
-      switch (choice.model) {
-        case flashIndicator:
-          console.log(
-            `[GeminiChat Debug] Selected Flash model based on router decision`,
-          );
-          return DEFAULT_GEMINI_FLASH_MODEL;
-        case proIndicator:
-          console.log(
-            `[GeminiChat Debug] Selected Pro model based on router decision`,
-          );
-          return DEFAULT_GEMINI_MODEL;
-        default:
-          console.log(
-            `[GeminiChat Debug] Using current model (${currentModel}) as router returned unexpected value`,
-          );
-          return currentModel;
-      }
-    } catch (e) {
-      // If the model selection fails, just use the default flash model.
-      console.log(
-        `[GeminiChat Debug] Model selection failed, defaulting to Flash model:`,
-        e,
-      );
-      return DEFAULT_GEMINI_FLASH_MODEL;
-    }
+    //   console.log(`[GeminiChat Debug] Model selection result:`, choice);
+    //   switch (choice.model) {
+    //     case flashIndicator:
+    //       console.log(
+    //         `[GeminiChat Debug] Selected Flash model based on router decision`,
+    //       );
+    //       return DEFAULT_GEMINI_FLASH_MODEL;
+    //     case proIndicator:
+    //       console.log(
+    //         `[GeminiChat Debug] Selected Pro model based on router decision`,
+    //       );
+    //       return DEFAULT_GEMINI_MODEL;
+    //     default:
+    //       console.log(
+    //         `[GeminiChat Debug] Using current model (${currentModel}) as router returned unexpected value`,
+    //       );
+    //       return currentModel;
+    //   }
+    // } catch (e) {
+    //   // If the model selection fails, just use the default flash model.
+    //   console.log(
+    //     `[GeminiChat Debug] Model selection failed, defaulting to Flash model:`,
+    //     e,
+    //   );
+    //   return DEFAULT_GEMINI_FLASH_MODEL;
+    // }
+    return DEFAULT_GEMINI_FLASH_MODEL;
   }
 
   /**

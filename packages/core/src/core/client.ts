@@ -39,6 +39,7 @@ import {
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 import { AuthType } from './contentGenerator.js';
+import { studyLogger } from '../utils/studyLoggerUtil.js';
 
 function isThinkingSupported(model: string) {
   if (model.startsWith('gemini-2.5')) return true;
@@ -285,6 +286,7 @@ export class GeminiClient {
       });
 
       const text = getResponseText(result);
+      studyLogger.info('text', text);
       if (!text) {
         const error = new Error(
           'API returned an empty response for generateJson.',
@@ -297,8 +299,12 @@ export class GeminiClient {
         );
         throw error;
       }
+
+      // Clean up potential markdown code block formatting
+      const cleanJsonText = this.cleanJsonResponse(text);
+
       try {
-        return JSON.parse(text);
+        return JSON.parse(cleanJsonText);
       } catch (parseError) {
         await reportError(
           parseError,
@@ -534,5 +540,28 @@ export class GeminiClient {
     }
 
     return null;
+  }
+
+  /**
+   * Cleans up JSON response text by removing markdown code block formatting.
+   * Handles cases where the API returns JSON wrapped in ```json``` blocks.
+   */
+  private cleanJsonResponse(text: string): string {
+    // Remove leading/trailing whitespace
+    let cleaned = text.trim();
+
+    // Remove markdown code block markers
+    // Pattern: ```json\n...content...\n```
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.replace(/^```json\s*\n?/, '');
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```\s*\n?/, '');
+    }
+
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.replace(/\n?\s*```$/, '');
+    }
+
+    return cleaned.trim();
   }
 }
