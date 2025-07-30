@@ -167,6 +167,10 @@ export class GeminiClient {
     return initialParts;
   }
 
+  /**
+   * @param extraHistory - Additional history to add to the chat.
+   * @returns A new GeminiChat instance.
+   */
   private async startChat(extraHistory?: Content[]): Promise<GeminiChat> {
     const envParts = await this.getEnvironment();
     const toolRegistry = await this.config.getToolRegistry();

@@ -22,7 +22,7 @@ import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { setSimulate429 } from '../utils/testUtils.js';
 
-// --- Mocks ---
+// --- Mocks --- (模拟对象)
 const mockChatCreateFn = vi.fn();
 const mockGenerateContentFn = vi.fn();
 const mockEmbedContentFn = vi.fn();
@@ -64,8 +64,16 @@ vi.mock('../telemetry/index.js', () => ({
   logApiError: vi.fn(),
 }));
 
+/**
+ * 测试套件：Gemini 客户端 (client.ts)
+ * 测试 GeminiClient 类的功能，包括其与 Gemini API 的交互
+ */
 describe('Gemini Client (client.ts)', () => {
   let client: GeminiClient;
+  /**
+   * 测试前置设置
+   * 重置所有模拟，配置测试环境，初始化客户端
+   */
   beforeEach(async () => {
     vi.resetAllMocks();
 
@@ -146,6 +154,19 @@ describe('Gemini Client (client.ts)', () => {
     vi.restoreAllMocks();
   });
 
+  /**
+   * 注意：由于模拟 @google/genai 库存在持续问题，以下测试被移除
+   * 问题在于 GeminiClient 实例内部使用的模拟 GoogleGenerativeAI 实例
+   * 无法正确跟踪其方法调用
+   * 
+   * 具体而言，mockChatCreateFn（代表 instance.chats.create）
+   * 没有被检测为被 GeminiClient 实例调用
+   * 
+   * 这可能指向 GoogleGenerativeAI 类构造函数及其实例方法的模拟方式存在微妙问题
+   * 
+   * 未来调试时，确保 GeminiClient 中的 this.client（模拟的 GoogleGenerativeAI 实例）
+   * 正确地将其 chats.create 方法指向 mockChatCreateFn
+   */
   // NOTE: The following tests for startChat were removed due to persistent issues with
   // the @google/genai mock. Specifically, the mockChatCreateFn (representing instance.chats.create)
   // was not being detected as called by the GeminiClient instance.
@@ -166,10 +187,18 @@ describe('Gemini Client (client.ts)', () => {
   // it('generateJson should call getCoreSystemPrompt with userMemory and pass to generateContent', async () => { ... });
   // it('generateJson should call getCoreSystemPrompt with empty string if userMemory is empty', async () => { ... });
 
+  /**
+   * 测试套件：generateEmbedding 方法
+   * 测试生成文本嵌入向量的功能
+   */
   describe('generateEmbedding', () => {
     const texts = ['hello world', 'goodbye world'];
     const testEmbeddingModel = 'test-embedding-model';
 
+    /**
+     * 测试：使用正确参数调用 embedContent 并返回嵌入向量
+     * 验证方法传递正确参数给 API 并正确处理返回结果
+     */
     it('should call embedContent with correct parameters and return embeddings', async () => {
       const mockEmbeddings = [
         [0.1, 0.2, 0.3],
@@ -193,12 +222,20 @@ describe('Gemini Client (client.ts)', () => {
       expect(result).toEqual(mockEmbeddings);
     });
 
+    /**
+     * 测试：传入空数组时返回空数组
+     * 验证方法对边界情况的处理
+     */
     it('should return an empty array if an empty array is passed', async () => {
       const result = await client.generateEmbedding([]);
       expect(result).toEqual([]);
       expect(mockEmbedContentFn).not.toHaveBeenCalled();
     });
 
+    /**
+     * 测试：API 响应没有 embeddings 数组时抛出错误
+     * 验证错误处理机制
+     */
     it('should throw an error if API response has no embeddings array', async () => {
       mockEmbedContentFn.mockResolvedValue({} as EmbedContentResponse); // No `embeddings` key
 
@@ -207,6 +244,10 @@ describe('Gemini Client (client.ts)', () => {
       );
     });
 
+    /**
+     * 测试：API 响应有空 embeddings 数组时抛出错误
+     * 验证错误处理机制
+     */
     it('should throw an error if API response has an empty embeddings array', async () => {
       const mockResponse: EmbedContentResponse = {
         embeddings: [],
@@ -217,6 +258,10 @@ describe('Gemini Client (client.ts)', () => {
       );
     });
 
+    /**
+     * 测试：API 返回的嵌入向量数量不匹配时抛出错误
+     * 验证输入和输出一致性检查
+     */
     it('should throw an error if API returns a mismatched number of embeddings', async () => {
       const mockResponse: EmbedContentResponse = {
         embeddings: [{ values: [1, 2, 3] }], // Only one for two texts
@@ -228,6 +273,10 @@ describe('Gemini Client (client.ts)', () => {
       );
     });
 
+    /**
+     * 测试：任何嵌入向量有空值时抛出错误
+     * 验证数据完整性检查
+     */
     it('should throw an error if any embedding has nullish values', async () => {
       const mockResponse: EmbedContentResponse = {
         embeddings: [{ values: [1, 2, 3] }, { values: undefined }], // Second one is bad
@@ -239,6 +288,10 @@ describe('Gemini Client (client.ts)', () => {
       );
     });
 
+    /**
+     * 测试：任何嵌入向量有空数组时抛出错误
+     * 验证数据有效性检查
+     */
     it('should throw an error if any embedding has an empty values array', async () => {
       const mockResponse: EmbedContentResponse = {
         embeddings: [{ values: [] }, { values: [1, 2, 3] }], // First one is bad
@@ -250,6 +303,10 @@ describe('Gemini Client (client.ts)', () => {
       );
     });
 
+    /**
+     * 测试：传播 API 调用的错误
+     * 验证错误传播机制
+     */
     it('should propagate errors from the API call', async () => {
       const apiError = new Error('API Failure');
       mockEmbedContentFn.mockRejectedValue(apiError);
@@ -260,7 +317,15 @@ describe('Gemini Client (client.ts)', () => {
     });
   });
 
+  /**
+   * 测试套件：generateContent 方法
+   * 测试生成文本内容的功能
+   */
   describe('generateContent', () => {
+    /**
+     * 测试：使用正确参数调用 generateContent
+     * 验证配置正确传递给 API
+     */
     it('should call generateContent with the correct parameters', async () => {
       const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
       const generationConfig = { temperature: 0.5 };
@@ -288,7 +353,15 @@ describe('Gemini Client (client.ts)', () => {
     });
   });
 
+  /**
+   * 测试套件：generateJson 方法
+   * 测试生成 JSON 格式内容的功能
+   */
   describe('generateJson', () => {
+    /**
+     * 测试：使用正确参数调用 generateContent
+     * 验证 JSON 生成配置正确设置
+     */
     it('should call generateContent with the correct parameters', async () => {
       const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
       const schema = { type: 'string' };
@@ -318,7 +391,15 @@ describe('Gemini Client (client.ts)', () => {
     });
   });
 
+  /**
+   * 测试套件：addHistory 方法
+   * 测试向聊天历史添加内容的功能
+   */
   describe('addHistory', () => {
+    /**
+     * 测试：使用提供的内容调用 chat.addHistory
+     * 验证历史记录正确添加
+     */
     it('should call chat.addHistory with the provided content', async () => {
       const mockChat = {
         addHistory: vi.fn(),
@@ -336,7 +417,15 @@ describe('Gemini Client (client.ts)', () => {
     });
   });
 
+  /**
+   * 测试套件：resetChat 方法
+   * 测试重置聊天会话的功能
+   */
   describe('resetChat', () => {
+    /**
+     * 测试：创建新的聊天会话，清除旧的历史记录
+     * 验证聊天重置功能正常工作
+     */
     it('should create a new chat session, clearing the old history', async () => {
       // 1. Get the initial chat instance and add some history.
       const initialChat = await client.getChat();
@@ -364,7 +453,15 @@ describe('Gemini Client (client.ts)', () => {
     });
   });
 
+  /**
+   * 测试套件：sendMessageStream 方法
+   * 测试流式发送消息的功能
+   */
   describe('sendMessageStream', () => {
+    /**
+     * 测试：流完成后返回 turn 实例
+     * 验证流处理机制和返回值
+     */
     it('should return the turn instance after the stream is complete', async () => {
       // Arrange
       const mockStream = (async function* () {
