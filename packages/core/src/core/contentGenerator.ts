@@ -16,7 +16,7 @@ import {
 import { createCodeAssistContentGenerator } from '../code_assist/codeAssist.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { getEffectiveModel } from './modelCheck.js';
-import { studyLogger } from '../utils/studyLoggerUtil.js';
+
 
 /**
  * Interface abstracting the core functionalities for generating content and counting tokens.

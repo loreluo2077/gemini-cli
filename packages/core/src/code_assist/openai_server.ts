@@ -30,7 +30,7 @@ import {
 import { ContentGenerator } from '../core/contentGenerator.js';
 import { Content } from '@google/genai';
 import dotenv from 'dotenv';
-import { studyLogger } from '../utils/studyLoggerUtil.js';
+
 
 /** HTTP options to be used in each of the requests. */
 export interface HttpOptions {
@@ -54,7 +54,7 @@ export class OpenAICodeAssistServer implements ContentGenerator {
   private async *mapStream(
     stream: AsyncIterable<ChatCompletionChunk>,
   ): AsyncGenerator<GenerateContentResponse> {
-    studyLogger.info('=== mapStream开始处理流式响应 ===');
+    console.debug('=== mapStream开始处理流式响应 ===');
 
     // Tool calls can be streamed, so we need to accumulate the parts.
     const toolCallChunks: {
@@ -71,25 +71,25 @@ export class OpenAICodeAssistServer implements ContentGenerator {
 
     for await (const chunk of stream) {
       chunkCount++;
-      studyLogger.info(`--- 处理第${chunkCount}个chunk ---`);
-      studyLogger.info('chunk:', JSON.stringify(chunk, null, 2));
+      console.debug(`--- 处理第${chunkCount}个chunk ---`);
+      console.debug('chunk:', JSON.stringify(chunk, null, 2));
 
       const delta = chunk.choices[0]?.delta;
 
       if (!delta) {
-        studyLogger.warn('chunk中没有delta，跳过');
+        console.debug('chunk中没有delta，跳过');
         continue;
       }
 
       // 处理文本内容
       if (delta.content) {
         textChunkCount++;
-        studyLogger.info(
+        console.debug(
           `处理文本内容chunk #${textChunkCount}:`,
           delta.content,
         );
         const response = fromOpenAIStreamChunk(chunk);
-        studyLogger.info(
+        console.debug(
           '生成的文本response:',
           JSON.stringify(response, null, 2),
         );
@@ -99,17 +99,14 @@ export class OpenAICodeAssistServer implements ContentGenerator {
       // 处理tool_calls
       if (delta.tool_calls) {
         toolCallChunkCount++;
-        studyLogger.info(
+        console.debug(
           `处理tool_calls chunk #${toolCallChunkCount}:`,
           JSON.stringify(delta.tool_calls, null, 2),
         );
 
         for (const toolCall of delta.tool_calls) {
           if (toolCall.index === undefined) {
-            studyLogger.warn(
-              'toolCall没有index，跳过:',
-              JSON.stringify(toolCall),
-            );
+          
             continue;
           }
 
@@ -122,25 +119,19 @@ export class OpenAICodeAssistServer implements ContentGenerator {
               name: toolCall.function?.name ?? '',
               arguments: toolCall.function?.arguments ?? '',
             };
-            studyLogger.info(
-              `创建新的toolCall[${index}]:`,
-              JSON.stringify(toolCallChunks[index]),
-            );
+            
           } else {
             const newArgs = toolCall.function?.arguments ?? '';
             toolCallChunks[index].arguments += newArgs;
-            studyLogger.info(
+            console.debug(
               `累积toolCall[${index}] arguments: "${newArgs}" -> 总长度: ${toolCallChunks[index].arguments.length}`,
             );
           }
 
-          studyLogger.info(
-            `当前toolCall[${index}]状态:`,
-            JSON.stringify(toolCallChunks[index]),
-          );
+         
         }
 
-        studyLogger.info(
+        console.debug(
           '当前所有toolCallChunks状态:',
           JSON.stringify(toolCallChunks, null, 2),
         );
@@ -148,12 +139,12 @@ export class OpenAICodeAssistServer implements ContentGenerator {
 
       const finishReason = chunk.choices[0]?.finish_reason;
       if (finishReason) {
-        studyLogger.info(`检测到finish_reason: ${finishReason}`);
+        console.debug(`检测到finish_reason: ${finishReason}`);
       }
 
       if (finishReason === 'tool_calls') {
-        studyLogger.info('=== 开始构建最终tool_calls响应 ===');
-        studyLogger.info(
+        console.debug('=== 开始构建最终tool_calls响应 ===');
+        console.debug(
           '最终accumulated toolCallChunks:',
           JSON.stringify(toolCallChunks, null, 2),
         );
@@ -161,22 +152,19 @@ export class OpenAICodeAssistServer implements ContentGenerator {
         try {
           const parts: Part[] = Object.values(toolCallChunks).map(
             (tc, index) => {
-              studyLogger.info(
+              console.debug(
                 `解析toolCall[${index}] arguments: "${tc.arguments}"`,
               );
               let parsedArgs;
               try {
                 parsedArgs = JSON.parse(tc.arguments);
-                studyLogger.info(
+                console.debug(
                   `成功解析toolCall[${index}] args:`,
                   JSON.stringify(parsedArgs),
                 );
               } catch (parseError) {
-                studyLogger.error(
-                  `解析toolCall[${index}] arguments失败:`,
-                  parseError,
-                );
-                studyLogger.error(`原始arguments: "${tc.arguments}"`);
+                
+           
                 throw parseError;
               }
 
@@ -202,19 +190,19 @@ export class OpenAICodeAssistServer implements ContentGenerator {
             },
           ];
 
-          studyLogger.info(
+          console.debug(
             '构建的最终tool_calls响应:',
             JSON.stringify(response, null, 2),
           );
           yield response;
         } catch (error) {
-          studyLogger.error('构建tool_calls响应时出错:', error);
+         
           throw error;
         }
       }
     }
 
-    studyLogger.info(
+    console.debug(
       `=== mapStream处理完成，总计处理 ${chunkCount} 个chunks，其中文本chunks: ${textChunkCount}，tool_call chunks: ${toolCallChunkCount} ===`,
     );
   }
@@ -222,25 +210,25 @@ export class OpenAICodeAssistServer implements ContentGenerator {
   async generateContentStream(
     req: GenerateContentParameters,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
-    studyLogger.info('=== generateContentStream开始 ===');
-    studyLogger.info('原始Gemini请求:', JSON.stringify(req, null, 2));
+    console.debug('=== generateContentStream开始 ===');
+    console.debug('原始Gemini请求:', JSON.stringify(req, null, 2));
 
     try {
       const openAIRequest = toOpenAIChatCompletionStreamingRequest(
         req,
         this.model,
       );
-      studyLogger.info('转换后的OpenAI流式请求已在converter中记录');
+      console.debug('转换后的OpenAI流式请求已在converter中记录');
 
-      studyLogger.info('调用OpenAI API...');
+      console.debug('调用OpenAI API...');
       const stream = await this.openai.chat.completions.create(
         openAIRequest as ChatCompletionCreateParamsStreaming,
       );
 
-      studyLogger.info('OpenAI API调用成功，开始处理流式响应');
+      console.debug('OpenAI API调用成功，开始处理流式响应');
       return this.mapStream(stream);
     } catch (error) {
-      studyLogger.error('generateContentStream出错:', error);
+      
       throw error;
     }
   }
@@ -248,31 +236,31 @@ export class OpenAICodeAssistServer implements ContentGenerator {
   async generateContent(
     req: GenerateContentParameters,
   ): Promise<GenerateContentResponse> {
-    studyLogger.info('=== generateContent开始（非流式） ===');
-    studyLogger.info('原始Gemini请求:', JSON.stringify(req, null, 2));
+    console.debug('=== generateContent开始（非流式） ===');
+    console.debug('原始Gemini请求:', JSON.stringify(req, null, 2));
 
     try {
       const openAIRequest = toOpenAIChatCompletionRequest(req, this.model);
-      studyLogger.info(
+      console.debug(
         '转换后的OpenAI请求:',
         JSON.stringify(openAIRequest, null, 2),
       );
 
-      studyLogger.info('调用OpenAI API（非流式）...');
+      console.debug('调用OpenAI API（非流式）...');
       const completion =
         await this.openai.chat.completions.create(openAIRequest);
 
-      studyLogger.info('OpenAI API响应:', JSON.stringify(completion, null, 2));
+      console.debug('OpenAI API响应:', JSON.stringify(completion, null, 2));
 
       const response = fromOpenAIChatCompletionResponse(completion);
-      studyLogger.info(
+      console.debug(
         '转换后的Gemini响应:',
         JSON.stringify(response, null, 2),
       );
 
       return response;
     } catch (error) {
-      studyLogger.error('generateContent出错:', error);
+      
       throw error;
     }
   }

@@ -39,7 +39,7 @@ import {
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 import { AuthType } from './contentGenerator.js';
-import { studyLogger } from '../utils/studyLoggerUtil.js';
+
 
 function isThinkingSupported(model: string) {
   if (model.startsWith('gemini-2.5')) return true;
@@ -290,7 +290,7 @@ export class GeminiClient {
       });
 
       const text = getResponseText(result);
-      studyLogger.info('text', text);
+      console.debug('text', text);
       if (!text) {
         const error = new Error(
           'API returned an empty response for generateJson.',

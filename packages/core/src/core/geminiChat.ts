@@ -38,7 +38,6 @@ import {
   DEFAULT_GEMINI_FLASH_MODEL,
   DEFAULT_GEMINI_MODEL,
 } from '../config/models.js';
-import { studyLogger } from '../utils/studyLoggerUtil.js';
 
 /**
  * Returns true if the response is valid, false otherwise.
@@ -701,8 +700,8 @@ export class GeminiChat {
       );
     }
     console.log(`[GeminiChat Debug] Recording history from stream response`);
-    studyLogger.info('inputContent', JSON.stringify(inputContent, null, 2));
-    studyLogger.info('outputContent', JSON.stringify(outputContent, null, 2));
+    console.debug('inputContent', JSON.stringify(inputContent, null, 2));
+    console.debug('outputContent', JSON.stringify(outputContent, null, 2));
     this.recordHistory(inputContent, outputContent);
   }
 

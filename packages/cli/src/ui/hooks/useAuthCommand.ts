@@ -9,7 +9,6 @@ import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import {
   AuthType,
   Config,
-  studyLogger,
   clearCachedCredentialFile,
   getErrorMessage,
 } from '@google/gemini-cli-core';
